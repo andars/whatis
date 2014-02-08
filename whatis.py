@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from prettyprint import *
 
 from sys import argv
 from urllib.error import HTTPError
@@ -30,22 +31,32 @@ def wiki(what):
         f = open(cache, 'r', encoding='utf-8')
         definition = f.read()
         f.close()
-        return definition
+        #return definition
     try:
-        resp = urllib.request.urlopen('http://en.wikipedia.org/wiki/' + what)
-    except HTTPError:
+        resp = urllib.request.urlopen('http://en.wikipedia.org/w/api.php?action=query&titles=' +
+                                      what +'&prop=extracts&exintro&exchars=1000&format=json')
+    except HTTPError as e:
+        print(e)
         return 'The page: ' + 'http://en.wikipedia.org/wiki/' + what + \
                ' does not exist.'
-    html = resp.read().decode('utf-8')
-
-    index = html.find('<p>')
-    if not index == -1:
-        definition = remove_tags(html[index:html.find('</p>')])
-        definition += '\nRead more at: http://en.wikipedia.org/wiki/' + what
-        f = open(cache, 'w', encoding='utf-8')
-        f.write(definition)
-        f.close()
-        return definition
+    jsonresp = resp.read().decode('utf-8')
+    data = json.loads(jsonresp)['query']
+    
+    key, page = data['pages'].popitem()
+    
+    #print(page['extract'])
+    
+    definition = remove_tags(page['extract'])
+    parser = HTMLPrettyPrinter();
+    parser.feed(page['extract'])
+    print('\033[0m')
+    print('Read more at: ' + '\033[31m' + 'http://en.wikipedia.org/wiki/'+what +'\033[0m')
+    
+    
+    f = open(cache, 'w', encoding='utf-8')
+    f.write(definition)
+    f.close()
+    return definition
     return urban(what)
 
 
@@ -75,6 +86,7 @@ def urban(word, user=0):
 
 
 def main():
+    print('\033[34m') #let's get some green
     if not os.path.exists(os.getenv('HOME') + '/.whatis/wiki'):
         os.makedirs(os.getenv('HOME') + '/.whatis/wiki')
     if not os.path.exists(os.getenv('HOME') + '/.whatis/urban'):
@@ -92,7 +104,11 @@ def main():
                 args += arg
             else:
                 args += '_' + arg
-        print(wiki(args))
+        wiki(args)
+    print('\033[0m')
+    
+    
+    
 
 
 if __name__ == '__main__':
