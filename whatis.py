@@ -15,6 +15,7 @@ def get(url):
     try:
         resp = urllib.request.urlopen(url)
     except HTTPError:
+        print("failing")
         raise HTTPError
     return resp.read().decode('utf-8')
 
@@ -40,6 +41,7 @@ def did_you_mean(html):
 
 
 def wiki(what):
+    
     cache = os.getenv('HOME') + '/.whatis/wiki/' + what
     if os.path.exists(cache):
         f = open(cache, 'r', encoding='utf-8')
@@ -47,20 +49,18 @@ def wiki(what):
         f.close()
         #return definition
     try:
-
-    resp = urllib.request.urlopen('http://en.wikipedia.org/w/api.php?action=query&titles=' +
-                                      what +'&prop=extracts&exchars=1000&format=json&redirects')
+        jsonresp = get('http://en.wikipedia.org/w/api.php?action=query&titles=' +
+                                  what +'&prop=extracts&exchars=1000&format=json&redirects')
     except HTTPError as e:
         print(e)
         return 'The page: ' + 'http://en.wikipedia.org/wiki/' + what + \
                ' does not exist.'
-    jsonresp = resp.read().decode('utf-8')
     
     data = json.loads(jsonresp)['query']
     
     key, page = data['pages'].popitem()
     
-    #wikipedia page doesn't exist, try urban
+    #wikipedia page doesn't exist, try a search
     if key == "-1":
         return wikisearch(what)
         return urban(what)
@@ -70,18 +70,20 @@ def wiki(what):
     
     definition += '\033[0m \n\nRead more at: ' + '\033[31m' + 'http://en.wikipedia.org/wiki/'+what +'\033[0m'
     
-
+    print(what)
     f = open(cache, 'w', encoding='utf-8')
     f.write(definition)
     f.close()
     return definition
     
 def wikisearch(what):
+    cache = os.getenv('HOME') + '/.whatis/wiki/' + what
     retval = "\033[31m" + "Sorry, we couldn't find that phrase. Attempting a search for similar terms now... \n"
     try:
         resp = urllib.request.urlopen('http://en.wikipedia.org/w/index.php?search='+what)
     except HTTPError as e:
-        return "massive fail"
+        print( "massive fail" )
+        return urban(what)
     
     content = resp.read().decode('utf-8')
     index = content.find('<div class="searchdidyoumean">')
@@ -89,8 +91,9 @@ def wikisearch(what):
     retval += "\033[1m"
     retval += remove_tags(content[content.find("Did you mean")+14:content.find('</a></div>')]) \
                             .replace("_", " ")+"?"
+        
     f = open(cache, 'w', encoding='utf-8')
-    f.write(definition)
+    f.write(retval)
     f.close()
     return retval
     
@@ -110,6 +113,7 @@ def urban(word, user=0):
             + word)
     except HTTPError:
         return 'Error, invalid URL'
+    
     definitions = json.loads(j)
     if definitions['result_type'] == 'no_results':
         return "There were no results found for " + word
@@ -142,7 +146,7 @@ def main():
         os.makedirs(os.getenv('HOME') + '/.whatis/urban')
     if argv[1] == '-u':
         if argv[2] == '-n':
-            print(urban(gen_args(argv[4:], '+')))
+            print(urban(gen_args(argv[4:], '+'), int(argv[3])))
         else:
             print(urban(gen_args(argv[2:], '+')))
     else:
