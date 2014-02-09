@@ -34,31 +34,50 @@ def wiki(what):
         #return definition
     try:
         resp = urllib.request.urlopen('http://en.wikipedia.org/w/api.php?action=query&titles=' +
-                                      what +'&prop=extracts&exintro&exchars=1000&format=json')
+                                      what +'&prop=extracts&exchars=1000&format=json&redirects')
     except HTTPError as e:
         print(e)
         return 'The page: ' + 'http://en.wikipedia.org/wiki/' + what + \
                ' does not exist.'
     jsonresp = resp.read().decode('utf-8')
+    
     data = json.loads(jsonresp)['query']
     
     key, page = data['pages'].popitem()
     
-    #print(page['extract'])
-    
-    definition = remove_tags(page['extract'])
+    #wikipedia page doesn't exist, try urban
+    if key == "-1":
+        return wikisearch(what)
+        return urban(what)
+      
     parser = HTMLPrettyPrinter();
-    parser.feed(page['extract'])
-    print('\033[0m')
-    print('Read more at: ' + '\033[31m' + 'http://en.wikipedia.org/wiki/'+what +'\033[0m')
+    definition = parser.feed(page['extract'])
     
+    definition += '\033[0m \n\nRead more at: ' + '\033[31m' + 'http://en.wikipedia.org/wiki/'+what +'\033[0m'
     
+
     f = open(cache, 'w', encoding='utf-8')
     f.write(definition)
     f.close()
     return definition
-    return urban(what)
-
+    
+def wikisearch(what):
+    retval = "\033[31m" + "Sorry, we couldn't find that phrase. Attempting a search for similar terms now... \n"
+    try:
+        resp = urllib.request.urlopen('http://en.wikipedia.org/w/index.php?search='+what)
+    except HTTPError as e:
+        return "massive fail"
+    
+    content = resp.read().decode('utf-8')
+    index = content.find('<div class="searchdidyoumean">')
+    retval += "\033[34m" + "Did you mean: "
+    retval += "\033[1m"
+    retval += remove_tags(content[content.find("Did you mean")+14:content.find('</a></div>')]) \
+                            .replace("_", " ")+"?"
+    return retval
+    
+    
+        
 
 def urban(word, user=0):
     cache = os.getenv('HOME') + '/.whatis/urban/' + word + '_' + str(user)
@@ -104,7 +123,8 @@ def main():
                 args += arg
             else:
                 args += '_' + arg
-        wiki(args)
+        print(wiki(args))
+    
     print('\033[0m')
     
     

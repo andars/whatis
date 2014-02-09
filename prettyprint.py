@@ -6,26 +6,27 @@ class HTMLPrettyPrinter():
     def __init__(self):
         self.state = ""
         self.indentlevel = 0
+        self.retval = ""
 
     def feed(self, str):
         dom = parseString('<content>'+str+'</content>')
         
         #print(dom.firstChild.childNodes)
         self.descend(dom.firstChild)
+        return self.retval
             
     def descend(self, node):
         for node in node.childNodes:
             if node.nodeType == node.ELEMENT_NODE and node.tagName != 'i':
                 self.handleTag(node, True)
-                #print(node.tagName)
                 self.descend(node)
                 self.handleTag(node, False)
                 
-                #print("/"+node.tagName)
             elif node.nodeType == node.TEXT_NODE:
                 self.handleText(node)
             else:
-                print(node.firstChild.data, end="")
+                self.retval += node.firstChild.data
+                #print(node.firstChild.data, end="")
                 
                 
     def handleTag(self, node, enter=True):
@@ -37,13 +38,15 @@ class HTMLPrettyPrinter():
             
         if node.tagName == 'p':
             if not enter:
-                print()
+                #print()
+                self.retval += '\n'
         elif node.tagName == 'ul':
             self.indentlevel += 4*mul
         elif node.tagName == 'li':
             if enter:
                 offset = ' ' * self.indentlevel
-                print(offset, "• ", end="")
+                self.retval += offset + "• "
+                #print(offset, "• ", end="")
             else:
                 self.state = ""
         else:
@@ -52,4 +55,5 @@ class HTMLPrettyPrinter():
         
     def handleText(self, node):
         offset = ' ' * self.indentlevel
-        print( node.data, end="")
+        self.retval+=node.data
+        #print( node.data, end="")
