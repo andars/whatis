@@ -7,9 +7,16 @@ import urllib.request
 import urllib.error
 import json
 import os
-import re
 
 __author__ = 'Adrian Chmielewski-Anders'
+
+
+def get(url):
+    try:
+        resp = urllib.request.urlopen(url)
+    except HTTPError:
+        raise HTTPError
+    return resp.read().decode('utf-8')
 
 
 def remove_tags(html):
@@ -25,6 +32,13 @@ def remove_tags(html):
     return no_tags
 
 
+def did_you_mean(html):
+    index = html.find('<ul>')
+    if not index == -1:
+        return 'Did you mean: \n' + remove_tags(
+            html[index: html.find('</ul>')]) + '\n?'
+
+
 def wiki(what):
     cache = os.getenv('HOME') + '/.whatis/wiki/' + what
     if os.path.exists(cache):
@@ -33,7 +47,8 @@ def wiki(what):
         f.close()
         #return definition
     try:
-        resp = urllib.request.urlopen('http://en.wikipedia.org/w/api.php?action=query&titles=' +
+
+    resp = urllib.request.urlopen('http://en.wikipedia.org/w/api.php?action=query&titles=' +
                                       what +'&prop=extracts&exchars=1000&format=json&redirects')
     except HTTPError as e:
         print(e)
@@ -74,6 +89,9 @@ def wikisearch(what):
     retval += "\033[1m"
     retval += remove_tags(content[content.find("Did you mean")+14:content.find('</a></div>')]) \
                             .replace("_", " ")+"?"
+    f = open(cache, 'w', encoding='utf-8')
+    f.write(definition)
+    f.close()
     return retval
     
     
@@ -86,10 +104,12 @@ def urban(word, user=0):
         definition = f.read()
         f.close()
         return definition
-    resp = urllib.request.urlopen(
-        'http://api.urbandictionary.com/v0/define?term='
-        + word)
-    j = resp.read().decode('utf-8')
+    try:
+        j = get(
+            'http://api.urbandictionary.com/v0/define?term='
+            + word)
+    except HTTPError:
+        return 'Error, invalid URL'
     definitions = json.loads(j)
     if definitions['result_type'] == 'no_results':
         return "There were no results found for " + word
@@ -104,6 +124,16 @@ def urban(word, user=0):
     return return_string
 
 
+def gen_args(arr, add_char='_'):
+    args = ''
+    for arg in arr:
+        if arg == arr[0]:
+            args += arg
+        else:
+            args += add_char + arg
+    return args
+
+
 def main():
     print('\033[34m') #let's get some green
     if not os.path.exists(os.getenv('HOME') + '/.whatis/wiki'):
@@ -111,24 +141,17 @@ def main():
     if not os.path.exists(os.getenv('HOME') + '/.whatis/urban'):
         os.makedirs(os.getenv('HOME') + '/.whatis/urban')
     if argv[1] == '-u':
-        matches = re.findall(r'-[0-9]+', argv[2])
-        if len(matches) == 0:
-            print(urban(argv[2]))
-        elif len(matches) > 0:
-            print(urban(argv[3], int(matches[0][1:])))
+        if argv[2] == '-n':
+            print(urban(gen_args(argv[4:], '+')))
+        else:
+            print(urban(gen_args(argv[2:], '+')))
     else:
-        args = ''
-        for arg in argv[1:]:
-            if arg == argv[1]:
-                args += arg
-            else:
-                args += '_' + arg
-        print(wiki(args))
-    
+  
+        print(wiki(gen_args(argv[1:])))
+
     print('\033[0m')
-    
-    
-    
+
+        
 
 
 if __name__ == '__main__':
