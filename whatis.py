@@ -70,7 +70,6 @@ def wiki(what):
     
     definition += '\033[0m \n\nRead more at: ' + '\033[31m' + 'http://en.wikipedia.org/wiki/'+what +'\033[0m'
     
-    print(what)
     f = open(cache, 'w', encoding='utf-8')
     f.write(definition)
     f.close()
@@ -101,6 +100,11 @@ def wikisearch(what):
         
 
 def urban(word, user=0):
+    try:
+        user = int(user)
+    except ValueError:
+        return "Invalid usage. Try again"
+    
     cache = os.getenv('HOME') + '/.whatis/urban/' + word + '_' + str(user)
     if os.path.exists(cache):
         f = open(cache, 'r', encoding='utf-8')
@@ -146,7 +150,7 @@ def main():
         os.makedirs(os.getenv('HOME') + '/.whatis/urban')
     if argv[1] == '-u':
         if argv[2] == '-n':
-            print(urban(gen_args(argv[4:], '+'), int(argv[3])))
+            print(urban(gen_args(argv[4:], '+'), argv[3]))
         else:
             print(urban(gen_args(argv[2:], '+')))
     else:
